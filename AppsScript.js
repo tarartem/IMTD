@@ -120,14 +120,29 @@ function getEventMeetingUrl(event) {
   var location = event.getLocation() || "";
   var text = location + "\n" + description;
 
-  var meetMatch = text.match(/https?:\/\/meet\.google\.com\/[a-z0-9-]+/i);
-  if (meetMatch) return meetMatch[0];
+  var meetMatch = text.match(/(https?:\/\/)?meet\.google\.com\/[a-z0-9-]+/i);
+  if (meetMatch) return meetMatch[0].startsWith("http") ? meetMatch[0] : "https://" + meetMatch[0];
 
-  var zoomMatch = text.match(/https?:\/\/[a-zA-Z0-9-]+\.zoom\.(us|com)\/(j|my|s)\/[a-zA-Z0-9-_?=&]+/i);
-  if (zoomMatch) return zoomMatch[0];
+  var zoomMatch = text.match(/(https?:\/\/)?([a-zA-Z0-9-]+\.zoom\.(us|com)\/(j|my|s)\/[a-zA-Z0-9-_?=&]+)/i);
+  if (zoomMatch) return zoomMatch[0].startsWith("http") ? zoomMatch[0] : "https://" + zoomMatch[0];
 
-  var teamsMatch = text.match(/https?:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^s<>"']+/i);
+  var teamsMatch = text.match(/https?:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<>"']+/i);
   if (teamsMatch) return teamsMatch[0];
+
+  try {
+    if (typeof Calendar !== 'undefined') {
+      var cleanId = event.getId().split("@")[0];
+      var fullEvent = null;
+      try { fullEvent = Calendar.Events.get('primary', cleanId); } catch(e) {}
+      if (!fullEvent) {
+        try {
+          var list = Calendar.Events.list('primary', { iCalUID: event.getId() });
+          if (list && list.items && list.items.length > 0) fullEvent = list.items[0];
+        } catch(e) {}
+      }
+      if (fullEvent && fullEvent.hangoutLink) return fullEvent.hangoutLink;
+    }
+  } catch(e) {}
 
   return null;
 }
