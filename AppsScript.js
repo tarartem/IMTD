@@ -52,6 +52,15 @@ function checkUpcomingMeetings() {
 // =========================================================================
 // MAC TAKEOVER — Writes a base64-websafe payload to cloud registry
 // =========================================================================
+function shortenUrl(longUrl) {
+  try {
+    var response = UrlFetchApp.fetch("https://tinyurl.com/api-create.php?url=" + encodeURIComponent(longUrl));
+    return response.getContentText();
+  } catch(e) {
+    return longUrl; // Fallback to long URL if shortening fails
+  }
+}
+
 function triggerMacTakeover(title, meetUrl, triggerKey) {
   if (!KV_APP_KEY || KV_APP_KEY === "PASTE_YOUR_KEY_HERE") {
     Logger.log("Skipping Mac takeover: KV_APP_KEY is not configured.");
@@ -59,10 +68,13 @@ function triggerMacTakeover(title, meetUrl, triggerKey) {
   }
   
   try {
+    // Shorten the URL to prevent Microsoft IIS 400 Bad Request (URL Path Too Long > 260 chars)
+    var safeUrl = shortenUrl(meetUrl);
+
     var payload = JSON.stringify({
       id: triggerKey,
       title: title,
-      url: meetUrl
+      url: safeUrl
     });
     
     // Web-Safe Base64 to bypass routing limitations
@@ -114,7 +126,7 @@ function getEventMeetingUrl(event) {
   var zoomMatch = text.match(/https?:\/\/[a-zA-Z0-9-]+\.zoom\.(us|com)\/(j|my|s)\/[a-zA-Z0-9-_?=&]+/i);
   if (zoomMatch) return zoomMatch[0];
 
-  var teamsMatch = text.match(/https?:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s]+/i);
+  var teamsMatch = text.match(/https?:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^s<>"']+/i);
   if (teamsMatch) return teamsMatch[0];
 
   return null;
